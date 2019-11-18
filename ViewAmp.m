@@ -22,7 +22,7 @@ function varargout = ViewAmp(varargin)
 
 % Edit the above text to modify the response to help ViewAmp
 
-% Last Modified by GUIDE v2.5 13-Nov-2019 21:10:20
+% Last Modified by GUIDE v2.5 15-Nov-2019 10:59:01
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -202,7 +202,7 @@ guidata(hObject, handles);
 figure('color', 'w');
 plot(TimeStamps, data);
 
-[folder_structure, ~] = fileparts(handles.DirectoryName);
+[folder_structure, current_folder] = fileparts(handles.DirectoryName);
 if length(data) > 0
     mkdir([folder_structure '\MAT']);
     mkdir([folder_structure '\MAT\' current_folder  ]);
@@ -279,7 +279,7 @@ end
 
 
 % --- Executes on button press in Load.
-function Load_Callback(hObject, eventdata, handles)
+function Load_Callback(hObject, ~, handles)
 % hObject    handle to Load (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -338,6 +338,7 @@ handles.intensity = intensity;
 
 % Display the first one and store the graphics handle to the imshow object
 handles.image = imshow(handles.intensity{1}, 'Parent', handles.axes1);
+handles.hZoom = [];
 
 set(handles.ImageSlider, 'Min', 1, 'Max', (handles.PreviewNum + 1), ...
     'SliderStep', [1 1]/(handles.PreviewNum+1 - 1), 'Value', 1)
@@ -542,7 +543,7 @@ while BeginPoint < length(FileList)
     % Intensity of ROI (axes2)
     axes(handles.axes2);
     Lm = length(IntensityOfROI);
-    plot((1:Lm)', IntensityOfROI);
+    handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
     xlim([0 Lm])
     xlabel('Frames in interval')
     ylabel('Intensity (a.u.)')
@@ -552,7 +553,7 @@ while BeginPoint < length(FileList)
     Y = fft(IntensityOfROI(BeginPoint:EndPoint));
     L = EndPoint - BeginPoint + 1;
     P2 = abs(Y/L);
-    Amp(num, 1) = max(2*P2(2:end-1));
+    % Amp(num, 1) = max(2*P2(2:end-1));
     P1 = P2(1:ceil(L/2)+1);
     P1(2:end-1) = 2*P1(2:end-1);
     f = Fs*(0:ceil(L/2))/L;
@@ -565,17 +566,23 @@ while BeginPoint < length(FileList)
     
     % Average Intensity vs time(axes4)
     axes(handles.axes4);
+    LocMax = local_maximums(IntensityOfROI(BeginPoint:EndPoint));
+    LocMin = local_minimums(IntensityOfROI(BeginPoint:EndPoint));
+    MeanLocMax = mean(LocMax(:));
+    MeanLocMin = mean(LocMin(:));
+    Amp(num, 1) = abs(L*log(MeanLocMax/MeanLocMin));
     TestTime = (1:length(Amp))';
     plot(TestTime, Amp, '.');
     xlim([0 handles.ACtime])
     xlabel('t (s)')
-    ylabel('Intensity Amp per sec')
+    ylabel('Amplitude (nm)')
     
     BeginPoint = BeginPoint+Fs*TimeInterval;
     FileList = dir([handles.DirectoryName '\*.raw']);
     
     pause(0.05)
 end
+
 
 handles.AverIntensity = AverIntensity;
 guidata(hObject, handles);
@@ -584,6 +591,19 @@ guidata(hObject, handles);
 handles.TestTime = TestTime;
 guidata(hObject, handles);
 
+function op=local_maximums(s)
+s1=s(1:end-2);
+s2=s(2:end-1);
+s3=s(3:end);
+% maximums:
+op=1+find((s1<=s2)&(s2>=s3));
+
+function op=local_minimums(s)
+s1=s(1:end-2);
+s2=s(2:end-1);
+s3=s(3:end);
+% minimums:
+op=1+find((s1>=s2)&(s2<=s3));
 
 % --- Executes on button press in Delete_Save.
 function Delete_Save_Callback(hObject, eventdata, handles)
@@ -605,5 +625,35 @@ if isempty(TestTime) > 0
     mkdir([folder_structure '\MAT\' current_folder  ]);
 end
 
+h = getframe(gcf);
+GUIsaved = [folder_structure '\MAT\' handles.expName '_GUIsaved.tif'];
+imwrite(h.cdata, GUIsaved);
+
 SavePath = [folder_structure '\MAT\' expName '.mat'];
 save(SavePath, 'AverIntensity', 'Amp', 'TestTime');
+
+
+% --- Executes on button press in ZoomOn.
+function ZoomOn_Callback(hObject, eventdata, handles)
+% hObject    handle to ZoomOn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+if isempty(handles.hZoom)
+    handles.hZoom = zoom;
+    guidata(hObject, handles);
+end
+if ~strcmp(get(handles.hZoom,'Enable'), 'on')
+    set(handles.hZoom, 'Enable', 'on');
+end
+
+
+% --- Executes on button press in ZoomOff.
+function ZoomOff_Callback(hObject, eventdata, handles)
+% hObject    handle to ZoomOff (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+if ~isempty(handles.hZoom)
+    set(handles.hZoom, 'Enable', 'off');
+end
