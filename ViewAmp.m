@@ -22,7 +22,7 @@ function varargout = ViewAmp(varargin)
 
 % Edit the above text to modify the response to help ViewAmp
 
-% Last Modified by GUIDE v2.5 15-Nov-2019 10:59:01
+% Last Modified by GUIDE v2.5 27-Nov-2019 22:42:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -240,14 +240,15 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in RawPath.
-function RawPath_Callback(hObject, eventdata, handles)
-% hObject    handle to RawPath (see GCBO)
+% --- Executes on button press in PicsPath.
+function PicsPath_Callback(hObject, eventdata, handles)
+% hObject    handle to PicsPath (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 DirectoryName = uigetdir();
 handles.DirectoryName = DirectoryName;
+handles.roiNumber = 0;
 guidata(hObject,handles);
 
 
@@ -284,57 +285,52 @@ function Load_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Load raws
+% Load Images
 
 BeginPoint = 1;
-PreviewList = dir([handles.DirectoryName '\*.raw']);
-
-intensity = cell(handles.PreviewNum + 1, 1);
-eight_bit = 0; % select 8 bit  or 16 bit raw files; default is 16 bit
-
-% The first image 'intensity0'
-fid = fopen([handles.DirectoryName '\' PreviewList(1).name]);
-A = fread(fid, 'uint8=>uint8');
-fclose(fid);
-% allign bits
-E = double(A(1:2:end));
-F = double(A(2:2:end));
-G = 64*E+F/4;
-if eight_bit == 1
-    intensity0 = reshape(E, [640 480]);
-elseif eight_bit == 0
-    intensity0 = reshape(G, [640 480])';
-end
-handles.intensity0 = intensity0;
-
-FileList = dir([handles.DirectoryName '\*.raw']);
-if length(FileList) <= handles.PreviewNum
-    pause(handles.TimeInterval);
-end
-
-for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+if length(dir([handles.DirectoryName '\*.raw'])) == 0
+    % *.tiff images
+    PreviewList = dir([handles.DirectoryName '\*.tiff']);
     
-    % read files
-    fid = fopen([handles.DirectoryName '\' PreviewList(file).name]);
-    A = fread(fid, 'uint8=>uint8');
-    fclose(fid);
-    % allign bits
-    E = double(A(1:2:end));
-    F = double(A(2:2:end));
-    G = 64*E+F/4;
-    if eight_bit == 1
-        intensity{file-BeginPoint+1, 1} = reshape(E, [640 480]);
-    elseif eight_bit == 0
-        intensity{file-BeginPoint+1, 1} = reshape(G, [640 480])';
+    % The first image 'intensity0'
+    intensity0 = GetTiffIntensity(handles.DirectoryName, PreviewList, 1);
+    
+    % Check if amount of images is enough for processing
+    FileList = dir([handles.DirectoryName '\*.tiff']);
+    if length(FileList) <= handles.PreviewNum
+        pause(handles.TimeInterval);
     end
     
-    % Write Files
-    %     imwrite(uint16(intensity), [folder_structure '\TIFF\' current_folder '\' PreviewList(file).name '.tiff'],...
-    %         'Compression', 'none');
-    intensity{file-BeginPoint+1, 1} = intensity{file-BeginPoint+1, 1} - intensity0;
+    % All images' intensity
+    intensity = cell(handles.PreviewNum + 1, 1);
+    for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+        temp = GetTiffIntensity(handles.DirectoryName, PreviewList, file);
+        intensity{file-BeginPoint+1, 1} = temp - intensity0;
+    end
+    
+else
+    % *.raw images
+    PreviewList = dir([handles.DirectoryName '\*.raw']);
+    
+    % The first image 'intensity0'
+    intensity0 = GetRawIntensity(handles.DirectoryName, PreviewList, 1);
+    
+    % Check if amount of images is enough for processing
+    FileList = dir([handles.DirectoryName '\*.raw']);
+    if length(FileList) <= handles.PreviewNum
+        pause(handles.TimeInterval);
+    end
+    
+    % All images' intensity
+    intensity = cell(handles.PreviewNum + 1, 1);
+    for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+        temp = GetRawIntensity(handles.DirectoryName, PreviewList, file);
+        intensity{file-BeginPoint+1, 1} = temp - intensity0;
+    end
     
 end
 handles.intensity = intensity;
+handles.intensity0 = intensity0;
 
 % Display the first one and store the graphics handle to the imshow object
 handles.image = imshow(handles.intensity{1}, 'Parent', handles.axes1);
@@ -346,6 +342,27 @@ set(handles.ImageSlider, 'Min', 1, 'Max', (handles.PreviewNum + 1), ...
 handles.BeginPoint = BeginPoint+handles.PreviewNum;
 guidata(hObject, handles);
 
+% --- Get Raw images Intensity
+function RawIntensity = GetRawIntensity(DirectoryName, DirectoryFileList, num)
+eight_bit = 0; % select 8 bit  or 16 bit raw files; default is 16 bit
+
+fid = fopen([DirectoryName '\' DirectoryFileList(num).name]);
+A = fread(fid, 'uint8=>uint8');
+fclose(fid);
+% allign bits
+E = double(A(1:2:end));
+F = double(A(2:2:end));
+G = 64*E+F/4;
+if eight_bit == 1
+    RawIntensity = reshape(E, [640 480]);
+elseif eight_bit == 0
+    RawIntensity = reshape(G, [640 480])';
+end
+
+% --- Get Tiff images Intensity
+function TiffIntensity = GetTiffIntensity(DirectoryName, DirectoryFileList, num)
+TiffIntensity = double(imread([DirectoryName '\' DirectoryFileList(num).name]));
+
 
 % --- Executes on button press in LoadMore.
 function LoadMore_Callback(hObject, eventdata, handles)
@@ -355,33 +372,32 @@ function LoadMore_Callback(hObject, eventdata, handles)
 
 BeginPoint = handles.BeginPoint;
 intensity0 = handles.intensity0;
-PreviewList = dir([handles.DirectoryName '\*.raw']);
 
-intensity = cell(handles.PreviewNum + 1, 1);
-eight_bit = 0; % select 8 bit  or 16 bit raw files; default is 16 bit
-for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+if length(dir([handles.DirectoryName '\*.raw'])) == 0
+    % *.tiff images
+    PreviewList = dir([handles.DirectoryName '\*.tiff']);
     
-    % read files
-    fid = fopen([handles.DirectoryName '\' PreviewList(file).name]);
-    A = fread(fid, 'uint8=>uint8');
-    fclose(fid);
-    % allign bits
-    E = double(A(1:2:end));
-    F = double(A(2:2:end));
-    G = 64*E+F/4;
-    if eight_bit == 1
-        intensity{file-BeginPoint+1, 1} = reshape(E, [640 480]);
-    elseif eight_bit == 0
-        intensity{file-BeginPoint+1, 1} = reshape(G, [640 480])';
+    % All images' intensity
+    intensity = cell(handles.PreviewNum + 1, 1);
+    for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+        temp = GetTiffIntensity(handles.DirectoryName, PreviewList, file);
+        intensity{file-BeginPoint+1, 1} = temp - intensity0;
     end
     
-    % Write Files
-    %     imwrite(uint16(intensity), [folder_structure '\TIFF\' current_folder '\' PreviewList(file).name '.tiff'],...
-    %         'Compression', 'none');
-    intensity{file-BeginPoint+1, 1} = intensity{file-BeginPoint+1, 1} - intensity0;
+else
+    % *.raw images
+    PreviewList = dir([handles.DirectoryName '\*.raw']);
+    
+    % All images' intensity
+    intensity = cell(handles.PreviewNum + 1, 1);
+    for file = BeginPoint:(handles.PreviewNum + BeginPoint)
+        temp = GetRawIntensity(handles.DirectoryName, PreviewList, file);
+        intensity{file-BeginPoint+1, 1} = temp - intensity0;
+    end
     
 end
 handles.intensity = intensity;
+
 
 % Display the first one and store the graphics handle to the imshow object
 handles.image = imshow(handles.intensity{1}, 'Parent', handles.axes1);
@@ -488,122 +504,153 @@ function CreateROI_Callback(hObject, eventdata, handles)
 axes(handles.axes1);
 roi = imrect;
 mask = createMask(roi);
+c = length(find(mask(:)~=0));
 handles.mask = mask;
 guidata(hObject, handles);
 
 TimeInterval = handles.TimeInterval;
+intensity0 = handles.intensity0;
 Fs = handles.Fs;
-c = length(find(mask(:)~=0));
+
 
 BeginPoint = 1;
-FileList = dir([handles.DirectoryName '\*.raw']);
-AverIntensity = zeros(length(FileList), 1);
-Amp = zeros(fix(length(FileList)/Fs), 1);
-
-if length(FileList) <= Fs*TimeInterval
-    pause(TimeInterval);
-end
-
-
-intensity0 = handles.intensity0;
 IntensityOfROI = zeros(BeginPoint+Fs*TimeInterval, 1);
-while BeginPoint < length(FileList)
-    EndPoint = BeginPoint+Fs*TimeInterval;
+if length(dir([handles.DirectoryName '\*.raw'])) == 0
+    % *.tiff images
+    FileList = dir([handles.DirectoryName '\*.tiff']);
+    Amp = zeros(fix(length(FileList)/Fs), 1);
     
-    if EndPoint > length(FileList)
-        EndPoint = length(FileList);
+    if length(FileList) <= Fs*TimeInterval
+        pause(TimeInterval);
     end
     
-    eight_bit = 0; % select 8 bit  or 16 bit raw files; default is 16 bit
-    for file = BeginPoint:EndPoint
+    
+    while BeginPoint < length(FileList)
+        EndPoint = BeginPoint+Fs*TimeInterval;
         
-        % read files
-        fid = fopen([handles.DirectoryName '\' FileList(file).name]);
-        A = fread(fid, 'uint8=>uint8');
-        fclose(fid);
-        % allign bits
-        E = double(A(1:2:end));
-        F = double(A(2:2:end));
-        G = 64*E+F/4;
-        if eight_bit == 1
-            intensity = reshape(E, [640 480]);
-        elseif eight_bit == 0
-            intensity = reshape(G, [640 480])';
+        if EndPoint > length(FileList)
+            EndPoint = length(FileList);
+        end
+        % All images' intensity
+        for file = BeginPoint:EndPoint
+            intensity = GetTiffIntensity(handles.DirectoryName, FileList, file);
+            
+            % Intensity of ROI (axes2)
+            temp = (intensity-intensity0).*mask;
+            IntensityOfROI(file, 1) = sum(temp(:))/c;
         end
         
         % Intensity of ROI (axes2)
-        temp = (intensity-intensity0).*mask;
-        IntensityOfROI(file, 1) = sum(temp(:))/c;
-        AverIntensity(file, 1) = IntensityOfROI(file, 1);
+        axes(handles.axes2);
+        Lm = length(IntensityOfROI);
+        handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
+        xlim([0 Lm])
+        xlabel('Frames in interval')
+        ylabel('Intensity (a.u.)')
         
-        % Aver(axes4)
+        % Amplitude spectrum (axes3)
+        Y = fft(IntensityOfROI(BeginPoint:EndPoint));
+        L = EndPoint - BeginPoint + 1;
+        P2 = abs(Y/L);
+        % Amp(num, 1) = max(2*P2(2:end-1));
+        P1 = P2(1:ceil(L/2)+1);
+        P1(2:end-1) = 2*P1(2:end-1);
+        f = Fs*(0:ceil(L/2))/L;
+        axes(handles.axes3);
+        plot(f, P1)
+        title('Single-Sided Amplitude Spectrum of X(t)')
+        xlim([1 fix(Fs/2)])
+        xlabel('f (Hz)')
+        ylabel('|P1(f)|')
         
+        % Average Intensity vs time(axes4)
+        axes(handles.axes4);
+        num = fix(EndPoint/Fs);
+        Amp(num, 1) = 2*std(IntensityOfROI(BeginPoint:EndPoint));
+        TestTime = (1:length(Amp))';
+        plot(TestTime, Amp, '.');
+        xlim([0 handles.ACtime])
+        xlabel('t (s)')
+        ylabel('Amplitude (nm)')
+        
+        BeginPoint = BeginPoint+Fs*TimeInterval;
+        FileList = dir([handles.DirectoryName '\*.tiff']);
+        
+        pause(0.05)
+    end
+else
+    % *.raw images
+    FileList = dir([handles.DirectoryName '\*.raw']);
+    Amp = zeros(fix(length(FileList)/Fs), 1);
+    
+    if length(FileList) <= Fs*TimeInterval
+        pause(TimeInterval);
     end
     
-    % Intensity of ROI (axes2)
-    axes(handles.axes2);
-    Lm = length(IntensityOfROI);
-    handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
-    xlim([0 Lm])
-    xlabel('Frames in interval')
-    ylabel('Intensity (a.u.)')
-    
-    % Amplitude spectrum (axes3)
-    num = fix(EndPoint/Fs);
-    Y = fft(IntensityOfROI(BeginPoint:EndPoint));
-    L = EndPoint - BeginPoint + 1;
-    P2 = abs(Y/L);
-    % Amp(num, 1) = max(2*P2(2:end-1));
-    P1 = P2(1:ceil(L/2)+1);
-    P1(2:end-1) = 2*P1(2:end-1);
-    f = Fs*(0:ceil(L/2))/L;
-    axes(handles.axes3);
-    plot(f, P1)
-    title('Single-Sided Amplitude Spectrum of X(t)')
-    xlim([1 fix(Fs/2)])
-    xlabel('f (Hz)')
-    ylabel('|P1(f)|')
-    
-    % Average Intensity vs time(axes4)
-    axes(handles.axes4);
-    LocMax = local_maximums(IntensityOfROI(BeginPoint:EndPoint));
-    LocMin = local_minimums(IntensityOfROI(BeginPoint:EndPoint));
-    MeanLocMax = mean(LocMax(:));
-    MeanLocMin = mean(LocMin(:));
-    Amp(num, 1) = abs(L*log(MeanLocMax/MeanLocMin));
-    TestTime = (1:length(Amp))';
-    plot(TestTime, Amp, '.');
-    xlim([0 handles.ACtime])
-    xlabel('t (s)')
-    ylabel('Amplitude (nm)')
-    
-    BeginPoint = BeginPoint+Fs*TimeInterval;
-    FileList = dir([handles.DirectoryName '\*.raw']);
-    
-    pause(0.05)
+    IntensityOfROI = zeros(BeginPoint+Fs*TimeInterval, 1);
+    while BeginPoint < length(FileList)
+        EndPoint = BeginPoint+Fs*TimeInterval;
+        
+        if EndPoint > length(FileList)
+            EndPoint = length(FileList);
+        end
+        
+        for file = BeginPoint:EndPoint
+            intensity = GetRawIntensity(handles.DirectoryName, FileList, file);
+            
+            % Intensity of ROI (axes2)
+            temp = (intensity-intensity0).*mask;
+            IntensityOfROI(file, 1) = sum(temp(:))/c;
+            
+        end
+        
+        % Intensity of ROI (axes2)
+        axes(handles.axes2);
+        Lm = length(IntensityOfROI);
+        handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
+        xlim([0 Lm])
+        xlabel('Frames in interval')
+        ylabel('Intensity (a.u.)')
+        
+        % Amplitude spectrum (axes3)
+        Y = fft(IntensityOfROI(BeginPoint:EndPoint));
+        L = EndPoint - BeginPoint + 1;
+        P2 = abs(Y/L);
+        % Amp(num, 1) = max(2*P2(2:end-1));
+        P1 = P2(1:ceil(L/2)+1);
+        P1(2:end-1) = 2*P1(2:end-1);
+        f = Fs*(0:ceil(L/2))/L;
+        axes(handles.axes3);
+        plot(f, P1)
+        title('Single-Sided Amplitude Spectrum of X(t)')
+        xlim([1 fix(Fs/2)])
+        xlabel('f (Hz)')
+        ylabel('|P1(f)|')
+        
+        % Average Intensity vs time(axes4)
+        axes(handles.axes4);
+        num = fix(EndPoint/Fs);
+        Amp(num, 1) = 2*std(IntensityOfROI(BeginPoint:EndPoint));
+        TestTime = (1:length(Amp))';
+        plot(TestTime, Amp, '.');
+        xlim([0 handles.ACtime])
+        xlabel('t (s)')
+        ylabel('Amplitude (nm)')
+        
+        BeginPoint = BeginPoint+Fs*TimeInterval;
+        FileList = dir([handles.DirectoryName '\*.raw']);
+        
+        pause(0.05)
+    end
 end
 
-
-handles.AverIntensity = AverIntensity;
-guidata(hObject, handles);
+handles.IntensityOfROI = IntensityOfROI;
 handles.Amp = Amp;
-guidata(hObject, handles);
 handles.TestTime = TestTime;
+handles.roiNumber = handles.roiNumber + 1;
 guidata(hObject, handles);
 
-function op=local_maximums(s)
-s1=s(1:end-2);
-s2=s(2:end-1);
-s3=s(3:end);
-% maximums:
-op=1+find((s1<=s2)&(s2>=s3));
 
-function op=local_minimums(s)
-s1=s(1:end-2);
-s2=s(2:end-1);
-s3=s(3:end);
-% minimums:
-op=1+find((s1>=s2)&(s2<=s3));
 
 % --- Executes on button press in Delete_Save.
 function Delete_Save_Callback(hObject, eventdata, handles)
@@ -614,23 +661,29 @@ function Delete_Save_Callback(hObject, eventdata, handles)
 % delete ROI and save
 
 
-AverIntensity = handles.AverIntensity;
+IntensityOfROI = handles.IntensityOfROI;
+roiNumber = handles.roiNumber;
+mask = handles.mask;
 Amp = handles.Amp;
 TestTime = handles.TestTime;
 expName = handles.expName;
 
 [folder_structure, current_folder] = fileparts(handles.DirectoryName);
-if isempty(TestTime) > 0
+if length(TestTime) > 0
     mkdir([folder_structure '\MAT']);
     mkdir([folder_structure '\MAT\' current_folder  ]);
 end
 
 h = getframe(gcf);
-GUIsaved = [folder_structure '\MAT\' handles.expName '_GUIsaved.tif'];
+GUIsaved = [folder_structure '\MAT\' current_folder '\' expName '_roi' num2str(roiNumber) '_GUIsaved.tif'];
 imwrite(h.cdata, GUIsaved);
 
-SavePath = [folder_structure '\MAT\' expName '.mat'];
-save(SavePath, 'AverIntensity', 'Amp', 'TestTime');
+GUIsaved = [folder_structure '\MAT\' current_folder '\' expName '_roi' num2str(roiNumber) '_Mask.tif'];
+imwrite(mask, GUIsaved);
+
+
+SavePath = [folder_structure '\MAT\' current_folder '\' expName '_roi' num2str(roiNumber) '.mat'];
+save(SavePath, 'IntensityOfROI', 'Amp', 'TestTime');
 
 
 % --- Executes on button press in ZoomOn.
@@ -657,3 +710,25 @@ function ZoomOff_Callback(hObject, eventdata, handles)
 if ~isempty(handles.hZoom)
     set(handles.hZoom, 'Enable', 'off');
 end
+
+
+% --- Executes on button press in Adjust.
+function Adjust_Callback(hObject, eventdata, handles)
+% hObject    handle to Adjust (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% I = getimage(handles.axes1);
+% J = imadjust(I);
+% axes(handles.axes1);
+% imshow(J, 'DisplayRange',[], 'InitialMagnification', 'fit')
+
+for ii = 1:(handles.PreviewNum+1)
+   I = handles.intensity{ii};
+   temp = I - ones(size(I))*min(I(:));
+   handles.intensity{ii} = uint8(temp/max(temp(:))*255);
+end
+handles.image = imshow(handles.intensity{1}, 'Parent', handles.axes1);
+set(handles.ImageSlider, 'Min', 1, 'Max', (handles.PreviewNum + 1), ...
+    'SliderStep', [1 1]/(handles.PreviewNum+1 - 1), 'Value', 1)
+guidata(hObject, handles);
