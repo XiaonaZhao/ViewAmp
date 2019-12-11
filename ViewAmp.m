@@ -291,12 +291,18 @@ BeginPoint = 1;
 if length(dir([handles.DirectoryName '\*.raw'])) == 0
     % *.tiff images
     PreviewList = dir([handles.DirectoryName '\*.tiff']);
+    if length(PreviewList) == 0
+        PreviewList = dir([handles.DirectoryName '\*.tif']);
+    end
     
     % The first image 'intensity0'
     intensity0 = GetTiffIntensity(handles.DirectoryName, PreviewList, 1);
     
     % Check if amount of images is enough for processing
     FileList = dir([handles.DirectoryName '\*.tiff']);
+    if length(FileList) == 0
+        FileList = dir([handles.DirectoryName '\*.tif']);
+    end
     if length(FileList) <= handles.PreviewNum
         pause(handles.TimeInterval);
     end
@@ -376,6 +382,9 @@ intensity0 = handles.intensity0;
 if length(dir([handles.DirectoryName '\*.raw'])) == 0
     % *.tiff images
     PreviewList = dir([handles.DirectoryName '\*.tiff']);
+    if length(PreviewList) == 0
+        PreviewList = dir([handles.DirectoryName '\*.tif']);
+    end
     
     % All images' intensity
     intensity = cell(handles.PreviewNum + 1, 1);
@@ -518,6 +527,9 @@ IntensityOfROI = zeros(BeginPoint+Fs*TimeInterval, 1);
 if length(dir([handles.DirectoryName '\*.raw'])) == 0
     % *.tiff images
     FileList = dir([handles.DirectoryName '\*.tiff']);
+    if length(FileList) == 0
+        FileList = dir([handles.DirectoryName '\*.tif']);
+    end
     Amp = zeros(fix(length(FileList)/Fs), 1);
     
     if length(FileList) <= Fs*TimeInterval
@@ -575,6 +587,9 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.tiff']);
+        if length(FileList) == 0
+            FileList = dir([handles.DirectoryName '\*.tif']);
+        end
         
         pause(0.05)
     end
