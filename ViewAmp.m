@@ -22,7 +22,7 @@ function varargout = ViewAmp(varargin)
 
 % Edit the above text to modify the response to help ViewAmp
 
-% Last Modified by GUIDE v2.5 27-Nov-2019 22:42:04
+% Last Modified by GUIDE v2.5 16-Dec-2019 18:06:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -583,7 +583,7 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         plot(TestTime, Amp, '.');
         xlim([0 handles.ACtime])
         xlabel('t (s)')
-        ylabel('Amplitude (nm)')
+        ylabel('Oscillation intensity (a.u.)')
         
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.tiff']);
@@ -655,7 +655,7 @@ else
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.raw']);
         
-        pause(0.05)
+        pause(0.02)
     end
 end
 
@@ -681,6 +681,8 @@ roiNumber = handles.roiNumber;
 mask = handles.mask;
 Amp = handles.Amp;
 TestTime = handles.TestTime;
+ACtime = handles.ACtime;
+f1 = handles.f1;
 expName = handles.expName;
 
 [folder_structure, current_folder] = fileparts(handles.DirectoryName);
@@ -698,7 +700,7 @@ imwrite(mask, GUIsaved);
 
 
 SavePath = [folder_structure '\MAT\' current_folder '\' expName '_roi' num2str(roiNumber) '.mat'];
-save(SavePath, 'IntensityOfROI', 'Amp', 'TestTime');
+save(SavePath, 'IntensityOfROI', 'Amp', 'TestTime', 'ACtime', 'f1');
 
 
 % --- Executes on button press in ZoomOn.
@@ -747,3 +749,52 @@ handles.image = imshow(handles.intensity{1}, 'Parent', handles.axes1);
 set(handles.ImageSlider, 'Min', 1, 'Max', (handles.PreviewNum + 1), ...
     'SliderStep', [1 1]/(handles.PreviewNum+1 - 1), 'Value', 1)
 guidata(hObject, handles);
+
+
+% --- Executes on button press in Debug.
+function Debug_Callback(hObject, eventdata, handles)
+% hObject    handle to Debug (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+keyboard
+
+
+% --- Executes on button press in Fit_Curve.
+function Fit_Curve_Callback(hObject, eventdata, handles)
+% hObject    handle to Fit_Curve (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+Amp = handles.Amp;
+TestTime = handles.TestTime;
+ACtime = handles.ACtime;
+
+axes(handles.axes4);
+[x, ~] = ginput(2);
+Y = Amp(round(x(1)): round(x(2)));
+X = TestTime(round(x(1)): round(x(2)));
+absorptionEqn = 'ax/(1+b*x)';
+% absorptionEqn = 'ae^x/(1+b*e^x)';
+f1 = fit(X,Y,absorptionEqn);
+% f1 = fit(X,Y,'power2');
+plot(TestTime, Amp, '.');
+% xlim([0 ACtime])
+xlabel('t (s)')
+ylabel('Amplitude (nm)')
+hold on
+plot(f1,X,Y)
+hold off
+handles.f1 = f1;
+guidata(hObject, handles);
+
+
+% --- Executes on button press in Unfit.
+function Unfit_Callback(hObject, eventdata, handles)
+% hObject    handle to Unfit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+axes(handles.axes4);
+plot(handles.TestTime, handles.Amp, '.');
+xlim([0 handles.ACtime])
+xlabel('t (s)')
+ylabel('Amplitude (nm)')
