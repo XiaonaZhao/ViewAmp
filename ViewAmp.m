@@ -682,7 +682,8 @@ mask = handles.mask;
 Amp = handles.Amp;
 TestTime = handles.TestTime;
 ACtime = handles.ACtime;
-f1 = handles.f1;
+fitresult = handles.fitresult;
+gof = handles.gof;
 expName = handles.expName;
 
 [folder_structure, current_folder] = fileparts(handles.DirectoryName);
@@ -700,7 +701,7 @@ imwrite(mask, GUIsaved);
 
 
 SavePath = [folder_structure '\MAT\' current_folder '\' expName '_roi' num2str(roiNumber) '.mat'];
-save(SavePath, 'IntensityOfROI', 'Amp', 'TestTime', 'ACtime', 'f1');
+save(SavePath, 'IntensityOfROI', 'Amp', 'TestTime', 'ACtime', 'fitresult', 'gof');
 
 
 % --- Executes on button press in ZoomOn.
@@ -773,18 +774,27 @@ axes(handles.axes4);
 [x, ~] = ginput(2);
 Y = Amp(round(x(1)): round(x(2)));
 X = TestTime(round(x(1)): round(x(2)));
-absorptionEqn = 'ax/(1+b*x)';
+absorptionEqn = '(1+b*x)/ax';
 % absorptionEqn = 'ae^x/(1+b*e^x)';
-f1 = fit(X,Y,absorptionEqn);
-% f1 = fit(X,Y,'power2');
+[fitresult, gof] = fit(X,Y,absorptionEqn);
 plot(TestTime, Amp, '.');
-% xlim([0 ACtime])
+xlim([0 ACtime])
 xlabel('t (s)')
 ylabel('Amplitude (nm)')
 hold on
-plot(f1,X,Y)
+plot(fitresult, X, Y)
 hold off
-handles.f1 = f1;
+
+output = cell(5, 1);
+output{1, 1} = ['SSE: ' num2str(gof.sse)];
+output{2, 1} = ['R-square: ' num2str(gof.rsquare)];
+output{3, 1} = ['DFE: ' num2str(gof.dfe)];
+output{4, 1} = ['adjR-square: ' num2str(gof.adjrsquare)];
+output{5, 1} = ['RMSE: ' num2str(gof.rmse)];
+msgbox(output, 'Goodness of fit');
+
+handles.fitresult = fitresult;
+handles.gof = gof;
 guidata(hObject, handles);
 
 
