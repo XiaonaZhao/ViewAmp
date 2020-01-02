@@ -22,7 +22,7 @@ function varargout = ViewAmp(varargin)
 
 % Edit the above text to modify the response to help ViewAmp
 
-% Last Modified by GUIDE v2.5 16-Dec-2019 18:06:04
+% Last Modified by GUIDE v2.5 31-Dec-2019 11:25:26
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -650,7 +650,7 @@ else
         plot(TestTime, Amp, '.');
         xlim([0 handles.ACtime])
         xlabel('t (s)')
-        ylabel('Amplitude (nm)')
+        ylabel('Oscillation intensity (a.u.)')
         
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.raw']);
@@ -772,29 +772,43 @@ ACtime = handles.ACtime;
 
 axes(handles.axes4);
 [x, ~] = ginput(2);
-Y = Amp(round(x(1)): round(x(2)));
-X = TestTime(round(x(1)): round(x(2)));
-absorptionEqn = '(1+b*x)/ax';
+intensity = Amp(round(x(1)): round(x(2))); % get intensity in the selected region
+% qt = 1./intensity; % from intensity to qt
+t = TestTime(round(x(1)): round(x(2))); % x is t.
+
+absorptionEqn = '(1+a*x)/(a*b*x)'; % a = k*qe, b = qe
 % absorptionEqn = 'ae^x/(1+b*e^x)';
-[fitresult, gof] = fit(X,Y,absorptionEqn);
-plot(TestTime, Amp, '.');
+[fitobject, gof] = fit(t,intensity, absorptionEqn);
+coeffvals = coeffvalues(fitobject); % get a & b;
+qe1 = 1/Amp(round(x(2))); % selected fit
+k1 = coeffvals(1)./qe1;
+qe2 = coeffvals(2); % direct cfit
+k2 = coeffvals(1)./coeffvals(2);
+plot(TestTime, Amp, 'b.');
+hold on
+t1 = TestTime(round(x(1))-10: round(x(2))+10);
+intensity1 = (1+coeffvals(1).*t1)./(coeffvals(2).*coeffvals(1).*t1);
+plot(t1, intensity1, 'r-')
 xlim([0 ACtime])
 xlabel('t (s)')
-ylabel('Amplitude (nm)')
-hold on
-plot(fitresult, X, Y)
+ylabel('Oscillation intensity (a.u.)')
 hold off
 
-output = cell(5, 1);
+output = cell(7, 1);
 output{1, 1} = ['SSE: ' num2str(gof.sse)];
 output{2, 1} = ['R-square: ' num2str(gof.rsquare)];
 output{3, 1} = ['DFE: ' num2str(gof.dfe)];
 output{4, 1} = ['adjR-square: ' num2str(gof.adjrsquare)];
 output{5, 1} = ['RMSE: ' num2str(gof.rmse)];
-msgbox(output, 'Goodness of fit');
+output{6, 1} = ['if qe = 1/y2, then qe = ' num2str(qe1) ', k = ' num2str(k1) '.'];
+output{7, 1} = ['if qe follows the cfit, then qe = ' num2str(qe2) ', k = ' num2str(k2) '.'];
+msgbox(output, 'Directly fit curve: Goodness of fit & ''k''');
 
-handles.fitresult = fitresult;
+handles.fitresult = fitobject;
 handles.gof = gof;
+% handles.qe = qe;
+handles.k1 = k1;
+handles.k2 = k2;
 guidata(hObject, handles);
 
 
@@ -807,4 +821,83 @@ axes(handles.axes4);
 plot(handles.TestTime, handles.Amp, '.');
 xlim([0 handles.ACtime])
 xlabel('t (s)')
-ylabel('Amplitude (nm)')
+ylabel('Oscillation intensity (a.u.)')
+
+
+% --- Executes on button press in smooth_curve.
+function smooth_curve_Callback(hObject, eventdata, handles)
+% hObject    handle to smooth_curve (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+Amp = handles.Amp;
+TestTime = handles.TestTime;
+ACtime = handles.ACtime;
+
+axes(handles.axes4);
+Amp_smooth = smooth(TestTime, Amp, 0.1,'rloess');
+plot(TestTime, Amp, 'b.',TestTime, Amp_smooth,'r-');
+xlim([0 ACtime])
+xlabel('t (s)')
+ylabel('Oscillation intensity (a.u.)')
+
+handles.Amp_smooth = Amp_smooth;
+guidata(hObject, handles);
+
+
+% --- Executes on button press in Smooth_fit.
+function Smooth_fit_Callback(hObject, eventdata, handles)
+% hObject    handle to Smooth_fit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+Amp = handles.Amp;
+TestTime = handles.TestTime;
+ACtime = handles.ACtime;
+
+axes(handles.axes4);
+Amp_smooth = smooth(TestTime, Amp, 0.1,'rloess');
+plot(TestTime, Amp, 'b.',TestTime, Amp_smooth,'r-');
+xlim([0 ACtime])
+xlabel('t (s)')
+ylabel('Oscillation intensity (a.u.)')
+
+[x, ~] = ginput(2);
+intensity = Amp_smooth(round(x(1)): round(x(2))); % get intensity in the selected region
+% qt = 1./intensity; % from intensity to qt
+t = TestTime(round(x(1)): round(x(2))); % x is t.
+
+absorptionEqn = '(1+a*x)/(a*b*x)'; % a = k*qe, b = qe
+% absorptionEqn = 'ae^x/(1+b*e^x)';
+[fitobject, gof] = fit(t,intensity, absorptionEqn);
+coeffvals = coeffvalues(fitobject); % get a & b;
+qe1 = 1/Amp(round(x(2))); % selected fit
+k1 = coeffvals(1)./qe1;
+qe2 = coeffvals(2); % direct cfit
+k2 = coeffvals(1)./coeffvals(2);
+plot(TestTime, Amp, 'b.');
+t1 = TestTime(round(x(1))-10: round(x(2))+10);
+intensity1 = (1+coeffvals(1).*t1)./(coeffvals(2).*coeffvals(1).*t1);
+hold on
+plot(t1, intensity1, 'r-')
+xlim([0 ACtime])
+xlabel('t (s)')
+ylabel('Oscillation intensity (a.u.)')
+hold off
+
+output = cell(7, 1);
+output{1, 1} = ['SSE: ' num2str(gof.sse)];
+output{2, 1} = ['R-square: ' num2str(gof.rsquare)];
+output{3, 1} = ['DFE: ' num2str(gof.dfe)];
+output{4, 1} = ['adjR-square: ' num2str(gof.adjrsquare)];
+output{5, 1} = ['RMSE: ' num2str(gof.rmse)];
+output{6, 1} = ['if qe = 1/y2, then qe = ' num2str(qe1) ', k = ' num2str(k1) '.'];
+output{7, 1} = ['if qe follows the cfit, then qe = ' num2str(qe2) ', k = ' num2str(k2) '.'];
+msgbox(output, 'Smoothed curve fit: Goodness of fit & ''k''');
+
+handles.fitresult = fitobject;
+handles.gof = gof;
+% handles.qe = qe;
+handles.k1 = k1;
+handles.k2 = k2;
+guidata(hObject, handles);
