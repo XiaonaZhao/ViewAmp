@@ -547,25 +547,25 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         % All images' intensity
         for file = BeginPoint:EndPoint
             intensity = GetTiffIntensity(handles.DirectoryName, FileList, file);
-            
+            intensity = intensity-intensity0;
             % Intensity of ROI (axes2)
-            temp = (intensity-intensity0).*mask;
+            temp = intensity.*mask;
             IntensityOfROI(file, 1) = sum(temp(:))/c;
         end
         
-        % Imshow in the axes1
         axes(handles.axes1);
-        J = imread([handles.DirectoryName '\' FileList(file).name]);
-        imshow(J, 'DisplayRange',[], 'InitialMagnification', 'fit')
+        imshow(intensity, 'DisplayRange',[], 'InitialMagnification', 'fit')
         
         % Intensity of ROI (axes2)
-        axes(handles.axes2);
         Lm = length(IntensityOfROI);
-        handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
+        FrameLine = (1:Lm)';
+        axes(handles.axes2);
+        plot(FrameLine, IntensityOfROI);
         xlim([0 Lm])
         xlabel('Frames in interval')
         ylabel('Intensity (a.u.)')
-        
+        drawnow
+
         % Amplitude spectrum (axes3)
         Y = fft(IntensityOfROI(BeginPoint:EndPoint));
         L = EndPoint - BeginPoint + 1;
@@ -574,22 +574,23 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         P1(2:end-1) = 2*P1(2:end-1);
         f = Fs*(0:ceil(L/2))/L;
         axes(handles.axes3);
-        plot(f, P1)
+        plot(f, P1);
         xlim([1 fix(Fs/2)])
         xlabel('f (Hz)')
         ylabel('|P1(f)|')
-        
+        drawnow
+
         % Average Intensity vs time(axes4)
-        axes(handles.axes4);
         num = fix(EndPoint/Fs);
         Index = f < Maxima & f > Minima;
-        % Amp(num, 1) = 2*std(IntensityOfROI(BeginPoint:EndPoint)); % a wrong data
         Amp(num, 1) = 1.414*max(P1(Index));
         TestTime = (1:length(Amp))';
+        axes(handles.axes4);
         plot(TestTime, Amp, '.');
         xlim([0 handles.ACtime])
         xlabel('t (s)')
-        ylabel('Oscillation intensity (a.u.)')
+        ylabel('Oscillation intentisy (a.u.)')
+        drawnow
         
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.tiff']);
