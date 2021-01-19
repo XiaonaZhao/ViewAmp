@@ -520,7 +520,8 @@ guidata(hObject, handles);
 TimeInterval = handles.TimeInterval;
 intensity0 = handles.intensity0;
 Fs = handles.Fs;
-
+Maxima = handles.ACfrequency + 2; % the 2 can be changed
+Minima = handles.ACfrequency - 2;
 
 BeginPoint = 1;
 IntensityOfROI = zeros(BeginPoint+Fs*TimeInterval, 1);
@@ -552,6 +553,11 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
             IntensityOfROI(file, 1) = sum(temp(:))/c;
         end
         
+        % Imshow in the axes1
+        axes(handles.axes1);
+        J = imread([handles.DirectoryName '\' FileList(file).name]);
+        imshow(J, 'DisplayRange',[], 'InitialMagnification', 'fit')
+        
         % Intensity of ROI (axes2)
         axes(handles.axes2);
         Lm = length(IntensityOfROI);
@@ -564,13 +570,11 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         Y = fft(IntensityOfROI(BeginPoint:EndPoint));
         L = EndPoint - BeginPoint + 1;
         P2 = abs(Y/L);
-        % Amp(num, 1) = max(2*P2(2:end-1));
         P1 = P2(1:ceil(L/2)+1);
         P1(2:end-1) = 2*P1(2:end-1);
         f = Fs*(0:ceil(L/2))/L;
         axes(handles.axes3);
         plot(f, P1)
-        title('Single-Sided Amplitude Spectrum of X(t)')
         xlim([1 fix(Fs/2)])
         xlabel('f (Hz)')
         ylabel('|P1(f)|')
@@ -578,8 +582,9 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
         % Average Intensity vs time(axes4)
         axes(handles.axes4);
         num = fix(EndPoint/Fs);
+        Index = f < Maxima & f > Minima;
         % Amp(num, 1) = 2*std(IntensityOfROI(BeginPoint:EndPoint)); % a wrong data
-        Amp(num, 1) = 1.414*max(P1(3:end-1));
+        Amp(num, 1) = 1.414*max(P1(Index));
         TestTime = (1:length(Amp))';
         plot(TestTime, Amp, '.');
         xlim([0 handles.ACtime])
@@ -592,7 +597,7 @@ if length(dir([handles.DirectoryName '\*.raw'])) == 0
             FileList = dir([handles.DirectoryName '\*.tif']);
         end
         
-        pause(0.05)
+        pause(0.01)
     end
 else
     % *.raw images
@@ -611,53 +616,84 @@ else
             EndPoint = length(FileList);
         end
         
+        mov = cell(EndPoint-BeginPoint+1, 1);
+        mm = 1;
         for file = BeginPoint:EndPoint
             intensity = GetRawIntensity(handles.DirectoryName, FileList, file);
-            
-            % Intensity of ROI (axes2)
-            temp = (intensity-intensity0).*mask;
+            intensity = intensity-intensity0;
+%             if mod(file, 8) == 0
+%                 axes(handles.axes1);
+%                 imshow(intensity, 'DisplayRange',[], 'InitialMagnification', 'fit')
+%                 pause(0.001)
+%                 % drawnow
+%             end
+            temp = intensity.*mask;
             IntensityOfROI(file, 1) = sum(temp(:))/c;
-            
+            mov{mm, 1} = intensity;
+            mm = mm + 1;
         end
         
+        
+        axes(handles.axes1);
+        imshow(intensity, 'DisplayRange',[], 'InitialMagnification', 'fit')
+%         pause(0.001)
+        % drawnow
+
+        
         % Intensity of ROI (axes2)
-        axes(handles.axes2);
         Lm = length(IntensityOfROI);
-        handles.roiIntensity_Plot = plot((1:Lm)', IntensityOfROI);
+        FrameLine = (1:Lm)';
+        axes(handles.axes2);
+        plot(FrameLine, IntensityOfROI);
         xlim([0 Lm])
         xlabel('Frames in interval')
         ylabel('Intensity (a.u.)')
-        
+        drawnow
+%         set(h2, 'erasemode', 'xor')
+%         set(h2, 'xdata', FrameLine, 'ydata', IntensityOfROI)
+
         % Amplitude spectrum (axes3)
         Y = fft(IntensityOfROI(BeginPoint:EndPoint));
         L = EndPoint - BeginPoint + 1;
         P2 = abs(Y/L);
-        % Amp(num, 1) = max(2*P2(2:end-1));
         P1 = P2(1:ceil(L/2)+1);
         P1(2:end-1) = 2*P1(2:end-1);
         f = Fs*(0:ceil(L/2))/L;
         axes(handles.axes3);
-        plot(f, P1)
-        title('Single-Sided Amplitude Spectrum of X(t)')
+        plot(f, P1);
         xlim([1 fix(Fs/2)])
         xlabel('f (Hz)')
         ylabel('|P1(f)|')
-        
+        drawnow
+%         set(h3, 'erasemode', 'xor')
+%         set(h3, 'xdata', f, 'ydata', P1)
+
         % Average Intensity vs time(axes4)
-        axes(handles.axes4);
         num = fix(EndPoint/Fs);
-        % Amp(num, 1) = 2*std(IntensityOfROI(BeginPoint:EndPoint)); % a wrong data
-        Amp(num, 1) = 1.414*max(P1(3:end-1));
+        Index = f < Maxima & f > Minima;
+        Amp(num, 1) = 1.414*max(P1(Index));
         TestTime = (1:length(Amp))';
+        axes(handles.axes4);
         plot(TestTime, Amp, '.');
         xlim([0 handles.ACtime])
         xlabel('t (s)')
-        ylabel('Oscillation intensity (a.u.)')
+        ylabel('Oscillation intentisy (a.u.)')
+        drawnow
+%         set(h4, 'erasemode', 'xor')
+%         set(h4, 'xdata', TestTime, 'ydata', Amp)
+        
+        % Imshow in the axes1
+%         axes(handles.axes1);
+%         for ii = 1:8:mm-1
+%             imshow(mov{ii, 1}, 'DisplayRange',[], 'InitialMagnification', 'fit')
+%             pause(0.001)
+% %             drawnow
+%         end
         
         BeginPoint = BeginPoint+Fs*TimeInterval;
         FileList = dir([handles.DirectoryName '\*.raw']);
         
-        pause(0.02)
+        % pause(0.001)
     end
 end
 
