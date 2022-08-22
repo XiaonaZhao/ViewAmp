@@ -1,6 +1,8 @@
 %% 19 Jan, 2021
 % More details in
 % https://www.mathworks.com/help/matlab/import_export/convert-between-image-sequences-and-video.html
+% Written by Ms. Xiaona Zhao, nonazhao@mail.ustc.edu.cn
+
 %% Create the Image Sequence
 workingDir = 'G:\Judy\';
 mkdir(workingDir)
