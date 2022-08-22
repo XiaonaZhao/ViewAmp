@@ -20,6 +20,7 @@ function varargout = ViewAmp(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
+% Created by Ms. Xiaona Zhao, nonazhao@mail.ustc.edu.cn
 % Edit the above text to modify the response to help ViewAmp
 
 % Last Modified by GUIDE v2.5 09-Sep-2020 20:39:25
