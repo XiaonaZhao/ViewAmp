@@ -1,5 +1,6 @@
 # ViewAmp
-A GUI used in PEIM, to real-time track the amplitude of ROIs
+<p>A GUI used in PEIM, to real-time track the amplitude of ROIs</p>
+<p>Written by Ms. Xiaona Zhao, nonazhao@mail.ustc.edu.cn</p>
 
 # Applications
 <p><b>Label-Free Probing of Molecule Binding Kinetics Using Single-Particle Interferometric Imaging</b></p>
